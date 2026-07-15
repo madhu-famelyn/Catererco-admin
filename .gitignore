@@ -1,3 +1,31 @@
+# Environment variables & secrets
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+
+# Production build outputs & temp bundles
+dist/
+dist-ssr/
+.output/
+.vinxi/
+.tanstack/
+.nitro/
+.wrangler/
+.dev.vars
+*.local
+.lovable/
+
+# Auto-generated TanStack router trees
+src/routeTree.gen.js
+src/routeTree.gen.ts
+
 # Logs
 logs
 *.log
@@ -5,32 +33,11 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-.output
-.vinxi
-.tanstack/**
-.nitro
-*.local
-.env
-.env.*
-!.env.example
-.lovable/
-
-# Wrangler / Cloudflare
-.wrangler/
-.dev.vars
-
-# Editor directories and files
+# Editor & OS system files
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
 *.suo
-*.ntvs*
-*.njsproj
-*.sln
 *.sw?
