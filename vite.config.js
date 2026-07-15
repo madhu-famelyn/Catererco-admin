@@ -50,7 +50,7 @@ export default defineConfig(({ command }) => {
         },
         router: {
           entry: "router.jsx",
-          generatedRouteTree: "./routeTree.gen.ts",
+          generatedRouteTree: "routeTree.gen.ts",
         },
 
 
