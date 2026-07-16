@@ -16,18 +16,34 @@ function MenuReviewDetail() {
     const { id } = Route.useParams();
     const review = menuReviews.find((m) => m.id === id) ?? menuReviews[0];
     const [items, setItems] = useState(review.items);
+    const [status, setStatus] = useState(review.status);
+
+    const handleApprove = () => {
+        review.status = "approved";
+        setStatus("approved");
+        toast.success(`Menu for ${review.caterer} approved and published live!`);
+    };
+
+    const handleReject = () => {
+        review.status = "rejected";
+        setStatus("rejected");
+        toast.error(`Menu for ${review.caterer} rejected.`);
+    };
+
     return (<>
       <PageHeader title={`Menu Review · ${review.caterer}`} description={`${review.itemsExtracted} items extracted · ${review.confidence}% confidence`} actions={<>
             <Button variant="outline" asChild><Link to="/admin/menu-review"><ArrowLeft className="mr-2 h-4 w-4"/> Back</Link></Button>
             <Button variant="outline" onClick={() => toast("Reprocessing menu...")}><RefreshCw className="mr-2 h-4 w-4"/> Reprocess</Button>
-            <Button variant="destructive" onClick={() => toast.error("Menu rejected")}><X className="mr-2 h-4 w-4"/> Reject</Button>
-            <Button onClick={() => toast.success("Menu approved and published")}><Check className="mr-2 h-4 w-4"/> Approve</Button>
+            <Button variant="destructive" onClick={handleReject} disabled={status === "rejected"}><X className="mr-2 h-4 w-4"/> Reject</Button>
+            <Button onClick={handleApprove} disabled={status === "approved"} className={status === "approved" ? "bg-emerald-600 text-white hover:bg-emerald-700" : ""}>
+              <Check className="mr-2 h-4 w-4"/> {status === "approved" ? "Approved" : "Approve"}
+            </Button>
           </>}/>
       <div className="grid gap-6 p-6 lg:grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Uploaded Menu</CardTitle>
-            <StatusBadge status={review.status}/>
+            <StatusBadge status={status}/>
           </CardHeader>
           <CardContent>
             <div className="flex h-72 flex-col items-center justify-center rounded-lg border border-dashed bg-muted/50 text-muted-foreground">

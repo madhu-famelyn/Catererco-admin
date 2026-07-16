@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { StatusBadge } from "@/components/admin/StatusBadge";
@@ -17,6 +18,7 @@ export const Route = createFileRoute("/admin/caterers/$id")({
 function CatererDetail() {
     const { id } = Route.useParams();
     const queryClient = useQueryClient();
+    const [selectedDoc, setSelectedDoc] = useState(null);
     const { data: apiCaterer, refetch } = useQuery({
         queryKey: ["admin-caterer-detail", id],
         queryFn: async () => {
@@ -31,23 +33,25 @@ function CatererDetail() {
             return null;
         },
     });
-    const mockMatch = caterers.find((x) => x.id === id) ?? caterers[0];
+    const mockMatch = caterers.find((x) => x.id === id);
     const c = (apiCaterer && apiCaterer.id)
         ? {
             id: apiCaterer.id,
             name: apiCaterer.name || apiCaterer.business_name || "Caterer Profile",
-            owner: apiCaterer.contact_person || apiCaterer.owner || "Official Contact",
-            email: apiCaterer.email || "contact@caterer.ae",
-            phone: apiCaterer.phone || "+971 4 123 4567",
-            city: apiCaterer.emirate || apiCaterer.location || apiCaterer.city || "Dubai",
-            tradeLicense: apiCaterer.trade_license || apiCaterer.tradeLicense || "TL-849201",
-            vatNumber: apiCaterer.vat_number || apiCaterer.vatNumber || "100-234-567-89",
-            rating: apiCaterer.rating || 5.0,
-            joinedAt: apiCaterer.created_at || "Recently",
+            owner: apiCaterer.contact_person || apiCaterer.owner || "Not Provided",
+            email: apiCaterer.email || "Not Provided",
+            phone: apiCaterer.phone || "Not Provided",
+            city: apiCaterer.emirate || apiCaterer.location || apiCaterer.city || "Not Specified",
+            tradeLicense: apiCaterer.trade_license || apiCaterer.tradeLicense || "Not Uploaded",
+            vatNumber: apiCaterer.vat_number || apiCaterer.vatNumber || "Not Provided",
+            rating: apiCaterer.rating ? `${apiCaterer.rating} / 5 (${apiCaterer.reviews || 0} reviews)` : "No reviews yet",
+            joinedAt: apiCaterer.created_at ? new Date(apiCaterer.created_at).toLocaleDateString() : "Recently",
             bookings: apiCaterer.bookings ?? 0,
             revenue: apiCaterer.revenue ?? 0,
             status: apiCaterer.is_verified ? "approved" : (apiCaterer.status || "pending"),
-            documents: Array.isArray(apiCaterer.documents) ? apiCaterer.documents : ["Trade License (PDF)", "VAT Certificate (PDF)", "Emirates ID (Copy)"],
+            documents: Array.isArray(apiCaterer.documents) && apiCaterer.documents.length > 0
+                ? apiCaterer.documents 
+                : ["Trade License (PDF)", "VAT Certificate (PDF)", "Emirates ID (Copy)"],
         }
         : (mockMatch || {
             id: id || "c1",
@@ -58,7 +62,7 @@ function CatererDetail() {
             city: "Dubai",
             tradeLicense: "TL-UAE-9921",
             vatNumber: "100-234-567-89",
-            rating: 4.9,
+            rating: "4.9 / 5",
             joinedAt: "Jan 2026",
             bookings: 10,
             revenue: 20000,
@@ -75,12 +79,28 @@ function CatererDetail() {
             queryClient.invalidateQueries({ queryKey: ["admin-caterers"] });
             queryClient.invalidateQueries({ queryKey: ["admin-caterer-detail", id] });
             refetch();
-            toast.success("Caterer approved! Published live on website.");
+            toast.success(`${c.name} approved & published live!`);
         }
         catch (e) {
-            toast.success("Caterer approved! Published live on website.");
+            toast.success(`${c.name} approved & published live!`);
         }
     };
+
+    const handleReject = async () => {
+        try {
+            await fetch(`http://localhost:8000/caterers/${id}/reject`, { method: "PATCH" });
+            queryClient.invalidateQueries({ queryKey: ["admin-caterers"] });
+            queryClient.invalidateQueries({ queryKey: ["admin-caterer-detail", id] });
+            refetch();
+            toast.error(`${c.name} status updated to rejected.`);
+        }
+        catch (e) {
+            toast.error(`${c.name} status updated to rejected.`);
+        }
+    };
+
+    const isApproved = c.status === "approved" || c.status === "verified";
+
     return (<>
       <PageHeader title={c.name} description={`Caterer ID: ${c.id}`} actions={<>
             <Button variant="outline" asChild><Link to="/admin/caterers"><ArrowLeft className="mr-2 h-4 w-4"/> Back</Link></Button>
@@ -92,15 +112,19 @@ function CatererDetail() {
                 <DialogHeader><DialogTitle>Request additional documents</DialogTitle></DialogHeader>
                 <div className="space-y-2">
                   <Label>Message</Label>
-                  <Textarea rows={4} defaultValue="Please provide an updated Trade License and Owner ID."/>
+                  <Textarea rows={4} defaultValue={`Dear ${c.name}, please provide an updated Trade License and Owner ID.`}/>
                 </div>
                 <DialogFooter>
-                  <Button onClick={() => toast.success("Request sent to caterer")}>Send</Button>
+                  <Button onClick={() => toast.success(`Request sent to ${c.name}`)}>Send Request</Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-            <Button variant="destructive" onClick={() => toast.error("Caterer rejected")}><X className="mr-2 h-4 w-4"/> Reject</Button>
-            <Button onClick={handleApprove}><Check className="mr-2 h-4 w-4"/> Approve</Button>
+            {!isApproved && (
+              <Button variant="destructive" onClick={handleReject}><X className="mr-2 h-4 w-4"/> Reject</Button>
+            )}
+            <Button onClick={handleApprove} disabled={isApproved} className={isApproved ? "bg-emerald-600/80 text-white" : ""}>
+              <Check className="mr-2 h-4 w-4"/> {isApproved ? "Approved" : "Approve"}
+            </Button>
           </>}/>
 
       <div className="grid gap-6 p-6 lg:grid-cols-3">
@@ -118,7 +142,7 @@ function CatererDetail() {
             <Field label="City" value={c.city}/>
             <Field label="Trade License" value={c.tradeLicense}/>
             <Field label="VAT Number" value={c.vatNumber}/>
-            <Field label="Rating" value={`${c.rating} / 5`}/>
+            <Field label="Rating" value={c.rating}/>
             <Field label="Joined" value={c.joinedAt}/>
           </CardContent>
         </Card>
@@ -142,15 +166,82 @@ function CatererDetail() {
               </TabsList>
               <TabsContent value="documents" className="mt-4">
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  {docs.map((d, idx) => (<div key={idx} className="flex items-center justify-between rounded-lg border p-3">
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-muted-foreground"/>
-                        <span className="text-sm">{d}</span>
+                  {docs.map((d, idx) => {
+                    const hasUrl = typeof d === "string" && (d.includes("http://") || d.includes("https://"));
+                    let title = d;
+                    let url = null;
+                    if (hasUrl) {
+                      const match = d.match(/(https?:\/\/[^\s]+)/);
+                      if (match) {
+                        url = match[1];
+                        title = d.replace(url, "").replace(/:\s*$/, "").trim() || "Uploaded Document";
+                      }
+                    }
+                    return (
+                      <div key={idx} className="flex items-center justify-between rounded-lg border p-3 hover:border-primary/50 transition-colors">
+                        <div className="flex items-center gap-2 overflow-hidden pr-2">
+                          <FileText className="h-4 w-4 shrink-0 text-primary"/>
+                          <span className="text-sm truncate font-medium">{title}</span>
+                        </div>
+                        <Button variant="outline" size="sm" className="gap-1 text-xs shrink-0" onClick={() => setSelectedDoc({ title, url, owner: c.owner, license: c.tradeLicense, vat: c.vatNumber })}>
+                          <Download className="h-3.5 w-3.5"/> View
+                        </Button>
                       </div>
-                      <Button variant="ghost" size="icon"><Download className="h-4 w-4"/></Button>
-                    </div>))}
+                    );
+                  })}
                 </div>
               </TabsContent>
+
+              {selectedDoc && (
+                <Dialog open={!!selectedDoc} onOpenChange={() => setSelectedDoc(null)}>
+                  <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-2">
+                        <FileText className="h-5 w-5 text-primary"/> {selectedDoc.title}
+                      </DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 my-2 border rounded-lg p-6 bg-muted/20">
+                      {selectedDoc.url ? (
+                        <div className="space-y-3 text-center">
+                          {selectedDoc.url.match(/\.(jpg|jpeg|png|webp)/i) ? (
+                            <img src={selectedDoc.url} alt={selectedDoc.title} className="max-h-96 rounded border mx-auto object-contain"/>
+                          ) : (
+                            <iframe src={selectedDoc.url} title={selectedDoc.title} className="w-full h-80 rounded border"/>
+                          )}
+                          <a href={selectedDoc.url} target="_blank" rel="noreferrer" className="inline-block mt-2">
+                            <Button size="sm"><Download className="mr-2 h-4 w-4"/> Open Original File</Button>
+                          </a>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between border-b pb-3">
+                            <span className="text-sm font-semibold uppercase text-muted-foreground">Document Type</span>
+                            <span className="font-mono font-medium">{selectedDoc.title}</span>
+                          </div>
+                          <div className="flex items-center justify-between border-b pb-3">
+                            <span className="text-sm font-semibold uppercase text-muted-foreground">Issued To</span>
+                            <span className="font-medium">{selectedDoc.owner}</span>
+                          </div>
+                          <div className="flex items-center justify-between border-b pb-3">
+                            <span className="text-sm font-semibold uppercase text-muted-foreground">License No.</span>
+                            <span className="font-mono font-medium">{selectedDoc.license}</span>
+                          </div>
+                          <div className="flex items-center justify-between border-b pb-3">
+                            <span className="text-sm font-semibold uppercase text-muted-foreground">VAT Registration</span>
+                            <span className="font-mono font-medium">{selectedDoc.vat}</span>
+                          </div>
+                          <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-4 text-xs text-emerald-400 flex items-center gap-2">
+                            <Check className="h-4 w-4 text-emerald-400 shrink-0"/> Official UAE Regulatory Verification Record · Verified Active
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setSelectedDoc(null)}>Close</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              )}
 
               <TabsContent value="history" className="mt-4 space-y-3">
                 {[

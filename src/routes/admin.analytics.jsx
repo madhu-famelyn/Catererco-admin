@@ -3,14 +3,47 @@ import { PageHeader } from "@/components/admin/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, Legend, } from "recharts";
-import { revenueOverview, bookingTrends, customerGrowth, popularEventTypes, popularCuisines, caterers } from "@/lib/mock-data";
+import { useQuery } from "@tanstack/react-query";
 import { Download } from "lucide-react";
+
 export const Route = createFileRoute("/admin/analytics")({
     component: AnalyticsPage,
 });
 const COLORS = ["#6366f1", "#22c55e", "#f59e0b", "#ec4899", "#0ea5e9", "#a855f7"];
 function AnalyticsPage() {
-    const topCaterers = [...caterers].sort((a, b) => b.revenue - a.revenue).slice(0, 6);
+    const { data: apiDashboard } = useQuery({
+        queryKey: ["admin-dashboard-analytics"],
+        queryFn: async () => {
+            try {
+                const res = await fetch("http://localhost:8000/dashboard/admin");
+                if (res.ok) return await res.json();
+            } catch (e) {}
+            return null;
+        },
+        refetchInterval: 5000,
+    });
+
+    const { data: caterersList = [] } = useQuery({
+        queryKey: ["admin-caterers-analytics"],
+        queryFn: async () => {
+            try {
+                const res = await fetch("http://localhost:8000/caterers?include_unverified=true");
+                if (res.ok) return await res.json();
+            } catch (e) {}
+            return [];
+        },
+    });
+
+    const liveRevenueOverview = apiDashboard?.revenueOverview || [];
+    const liveBookingTrends = apiDashboard?.bookingTrends || [];
+    const topCaterers = caterersList.map((c) => ({
+        id: c.id,
+        name: c.name || "Caterer",
+        city: c.emirate || "Dubai",
+        bookings: c.bookings ?? 0,
+        revenue: c.revenue ?? 0,
+        rating: c.rating ?? 5.0,
+    })).sort((a, b) => b.revenue - a.revenue);
     return (<>
       <PageHeader title="Analytics" description="Revenue, growth and marketplace performance." actions={<Button variant="outline"><Download className="mr-2 h-4 w-4"/> Export Report</Button>}/>
       <div className="grid gap-6 p-6 lg:grid-cols-2">
@@ -19,13 +52,12 @@ function AnalyticsPage() {
           <CardContent>
             <div className="h-72">
               <ResponsiveContainer>
-                <AreaChart data={revenueOverview}>
+                <AreaChart data={liveRevenueOverview}>
                   <CartesianGrid strokeDasharray="3 3" opacity={0.2}/>
                   <XAxis dataKey="month" fontSize={12}/>
                   <YAxis fontSize={12}/>
                   <Tooltip />
                   <Area type="monotone" dataKey="revenue" stroke="#6366f1" fill="#6366f1" fillOpacity={0.2}/>
-                  <Area type="monotone" dataKey="commission" stroke="#22c55e" fill="#22c55e" fillOpacity={0.2}/>
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -37,7 +69,7 @@ function AnalyticsPage() {
           <CardContent>
             <div className="h-72">
               <ResponsiveContainer>
-                <BarChart data={bookingTrends}>
+                <BarChart data={liveBookingTrends}>
                   <CartesianGrid strokeDasharray="3 3" opacity={0.2}/>
                   <XAxis dataKey="month" fontSize={12}/>
                   <YAxis fontSize={12}/>

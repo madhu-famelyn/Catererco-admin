@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { CalendarCheck, Wallet, ChefHat, Users, ClipboardCheck, Sparkles, LifeBuoy, ArrowRight, Plus, Download, } from "lucide-react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, } from "recharts";
 import { useQuery } from "@tanstack/react-query";
-import { bookings, revenueOverview, bookingTrends } from "@/lib/mock-data";
 export const Route = createFileRoute("/admin/")({
     component: DashboardPage,
 });
@@ -28,14 +27,18 @@ function DashboardPage() {
         refetchInterval: 3000,
     });
     const stats = apiDashboard?.stats || {
-        totalBookings: 4,
-        totalRevenue: 60248,
-        activeCaterers: 6,
-        activeCustomers: 12,
+        totalBookings: 0,
+        totalRevenue: 0,
+        activeCaterers: 0,
+        activeCustomers: 0,
         pendingCatererApprovals: 0,
-        pendingMenuReviews: 2,
+        pendingMenuReviews: 0,
         openSupportTickets: 0,
     };
+    const liveRecentBookings = apiDashboard?.recentBookings || [];
+    const liveRevenueOverview = apiDashboard?.revenueOverview || [];
+    const liveBookingTrends = apiDashboard?.bookingTrends || [];
+
     return (<>
       <PageHeader title="Dashboard" description="Snapshot of your marketplace performance." actions={<>
             <Button variant="outline" className="border-white/10 bg-white/[0.02] hover:bg-white/[0.06]">
@@ -48,10 +51,10 @@ function DashboardPage() {
       <div className="space-y-6 p-6">
         {/* Bento KPI grid */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <StatCard label="Total Bookings" value={stats.totalBookings.toLocaleString()} icon={CalendarCheck} trend="Live Database Count" spark={bookingTrends.map((b) => b.bookings)}/>
-          <StatCard label="Total Revenue" value={`AED ${stats.totalRevenue.toLocaleString()}`} icon={Wallet} trend="Live Revenue Sum" spark={revenueOverview.map((r) => r.revenue)} accent="emerald"/>
-          <StatCard label="Active Caterers" value={stats.activeCaterers} icon={ChefHat} trend="Verified Active Caterers" spark={[2, 3, 4, 5, 6, 6, 6, 6]} accent="amber"/>
-          <StatCard label="Active Customers" value={stats.activeCustomers.toLocaleString()} icon={Users} trend="Registered Accounts" spark={[4, 6, 8, 9, 10, 11, 12, 12]}/>
+          <StatCard label="Total Bookings" value={stats.totalBookings.toLocaleString()} icon={CalendarCheck} trend="Live Database Count" spark={liveBookingTrends.map((b) => b.bookings)} to="/admin/bookings"/>
+          <StatCard label="Total Revenue" value={`AED ${stats.totalRevenue.toLocaleString()}`} icon={Wallet} trend="Live Revenue Sum" spark={liveRevenueOverview.map((r) => r.revenue)} accent="emerald" to="/admin/payments"/>
+          <StatCard label="Active Caterers" value={stats.activeCaterers} icon={ChefHat} trend="Verified Active Caterers" spark={[2, 3, 4, 5, 6, 6, 6, 6]} accent="amber" to="/admin/caterers"/>
+          <StatCard label="Active Customers" value={stats.activeCustomers.toLocaleString()} icon={Users} trend="Registered Accounts" spark={[4, 6, 8, 9, 10, 11, 12, 12]} to="/admin/customers"/>
         </div>
 
         {/* Priority tiles */}
@@ -69,7 +72,7 @@ function DashboardPage() {
               <div>
                 <CardTitle className="font-display">Revenue Overview</CardTitle>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Gross revenue and commission across the last 12 months
+                  Gross revenue and commission across live database months
                 </p>
               </div>
               <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400">
@@ -79,7 +82,7 @@ function DashboardPage() {
             <CardContent>
               <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={revenueOverview} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <AreaChart data={liveRevenueOverview} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                     <defs>
                       <linearGradient id="revFill" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.45}/>
@@ -115,7 +118,7 @@ function DashboardPage() {
             <CardContent>
               <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={bookingTrends} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
+                  <BarChart data={liveBookingTrends} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
                     <defs>
                       <linearGradient id="barFill" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.95}/>
@@ -165,7 +168,7 @@ function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {bookings.slice(0, 6).map((b) => (<tr key={b.id} className="group transition-colors hover:bg-primary/[0.04]">
+                  {liveRecentBookings.slice(0, 6).map((b) => (<tr key={b.id} className="group transition-colors hover:bg-primary/[0.04]">
                       <td className="py-3.5 font-mono text-xs text-primary">{b.id}</td>
                       <td className="text-foreground">{b.customer}</td>
                       <td className="text-muted-foreground">{b.caterer}</td>

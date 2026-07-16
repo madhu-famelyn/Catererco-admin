@@ -5,18 +5,48 @@ import { StatusBadge } from "@/components/admin/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { bookings } from "@/lib/mock-data";
-import { Eye } from "lucide-react";
+import { Eye, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+
 export const Route = createFileRoute("/admin/bookings")({
     component: BookingsPage,
 });
 function BookingsPage() {
     const [status, setStatus] = useState("all");
+    const queryClient = useQueryClient();
     const matchChild = useMatch({ from: "/admin/bookings/$id", shouldThrow: false });
+
+    const { data: apiBookings = [] } = useQuery({
+        queryKey: ["admin-all-bookings"],
+        queryFn: async () => {
+            try {
+                const res = await fetch("http://localhost:8000/bookings/admin/all");
+                if (res.ok) return await res.json();
+            } catch (e) {}
+            return [];
+        },
+        refetchInterval: 5000,
+    });
+
     if (matchChild) {
         return <Outlet />;
     }
-    const filtered = status === "all" ? bookings : bookings.filter((b) => b.status === status);
+
+    const handleDeleteBooking = async (id) => {
+        if (!confirm(`Are you sure you want to delete booking "${id}"?`)) return;
+        try {
+            await fetch(`http://localhost:8000/bookings/${id}`, { method: "DELETE" });
+            queryClient.invalidateQueries({ queryKey: ["admin-all-bookings"] });
+            queryClient.invalidateQueries({ queryKey: ["admin-dashboard-stats"] });
+            toast.success(`Booking ${id} deleted successfully`);
+        } catch (e) {
+            toast.error("Failed to delete booking");
+        }
+    };
+
+    const filtered = status === "all" ? apiBookings : apiBookings.filter((b) => b.status === status);
     const columns = [
         { key: "id", header: "Booking" },
         { key: "customer", header: "Customer" },
@@ -28,12 +58,18 @@ function BookingsPage() {
         { key: "status", header: "Status", render: (r) => <StatusBadge status={r.status}/> },
         {
             key: "actions",
-            header: "",
-            render: (r) => (<Button asChild variant="ghost" size="sm">
-          <Link to="/admin/bookings/$id" params={{ id: r.id }}>
-            <Eye className="mr-1 h-4 w-4"/> View
-          </Link>
-        </Button>),
+            header: "Actions",
+            className: "text-right pr-6 w-48",
+            render: (r) => (<div className="flex items-center justify-end gap-2">
+          <Button asChild variant="ghost" size="sm">
+            <Link to="/admin/bookings/$id" params={{ id: r.id }}>
+              <Eye className="mr-1 h-4 w-4"/> View
+            </Link>
+          </Button>
+          <Button variant="ghost" size="sm" className="h-8 px-2 text-rose-500 hover:bg-rose-500/10 hover:text-rose-600" onClick={() => handleDeleteBooking(r.id)}>
+            <Trash2 className="h-3.5 w-3.5 mr-1"/> Delete
+          </Button>
+        </div>),
         },
     ];
     return (<>
