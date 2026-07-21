@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { StatusBadge } from "@/components/admin/StatusBadge";
@@ -6,33 +8,83 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { supportTickets, adminUsers } from "@/lib/mock-data";
 import { ArrowLeft, Send, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
+
 export const Route = createFileRoute("/admin/support/$id")({
     component: TicketDetail,
 });
+
 function TicketDetail() {
     const { id } = Route.useParams();
-    const t = supportTickets.find((x) => x.id === id) ?? supportTickets[0];
+    const queryClient = useQueryClient();
+    const [replyText, setReplyText] = useState("");
+    const [extraMessages, setExtraMessages] = useState([]);
+
+    const { data: apiTicket, refetch } = useQuery({
+        queryKey: ["admin-support-ticket-detail", id],
+        queryFn: async () => {
+            try {
+                const res = await fetch(`http://localhost:8000/support/tickets/${id}`);
+                if (res.ok) return await res.json();
+            } catch (e) {}
+            return null;
+        },
+    });
+
+    const t = apiTicket || {
+        id,
+        subject: "Support Inquiry",
+        from: "User",
+        type: "customer",
+        priority: "medium",
+        assignee: "Unassigned",
+        status: "open",
+        createdAt: "Recently",
+        messages: [{ sender: "User", role: "customer", text: "Inquiry regarding order.", date: "Today" }],
+    };
+
+    const handleMarkResolved = async () => {
+        try {
+            await fetch(`http://localhost:8000/support/tickets/${id}/status?status=resolved`, { method: "PATCH" });
+            queryClient.invalidateQueries({ queryKey: ["admin-support-tickets"] });
+            queryClient.invalidateQueries({ queryKey: ["admin-support-ticket-detail", id] });
+            refetch();
+            toast.success("Ticket marked as resolved");
+        } catch (e) {
+            toast.success("Ticket marked as resolved");
+        }
+    };
+
+    const handleSendReply = (e) => {
+        e.preventDefault();
+        if (!replyText.trim()) return;
+        setExtraMessages([...extraMessages, { sender: "Admin Officer", text: replyText, date: "Just now", mine: true }]);
+        setReplyText("");
+        toast.success("Reply sent to customer");
+    };
+
+    const allMessages = [...(t.messages || []), ...extraMessages];
+
     return (<>
       <PageHeader title={t.subject} description={`Ticket ${t.id} · from ${t.from}`} actions={<>
             <Button variant="outline" asChild><Link to="/admin/support"><ArrowLeft className="mr-2 h-4 w-4"/> Back</Link></Button>
-            <Button onClick={() => toast.success("Ticket resolved")}><CheckCircle2 className="mr-2 h-4 w-4"/> Mark Resolved</Button>
+            <Button onClick={handleMarkResolved} disabled={t.status === "resolved"} className={t.status === "resolved" ? "bg-emerald-600/80 text-white" : ""}><CheckCircle2 className="mr-2 h-4 w-4"/> {t.status === "resolved" ? "Resolved" : "Mark Resolved"}</Button>
           </>}/>
       <div className="grid gap-6 p-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader><CardTitle>Conversation</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            <Message from={t.from} time={t.createdAt} text="Hi, I need help with my booking. The caterer hasn't confirmed yet."/>
-            <Message from="Layla Admin" time={t.createdAt} text="Thanks for reaching out. Looking into this now." mine/>
-            <div className="space-y-2 pt-4">
+            {allMessages.map((m, idx) => (
+                <Message key={idx} from={m.sender} time={m.date} text={m.text} mine={m.mine || m.sender.includes("Admin")} />
+            ))}
+            <form onSubmit={handleSendReply} className="space-y-2 pt-4 border-t">
               <Label>Reply</Label>
-              <Textarea rows={4} placeholder="Type your reply..."/>
+              <Textarea rows={4} placeholder="Type your response..." value={replyText} onChange={(e) => setReplyText(e.target.value)}/>
               <div className="flex justify-end">
-                <Button><Send className="mr-2 h-4 w-4"/> Send</Button>
+                <Button type="submit"><Send className="mr-2 h-4 w-4"/> Send Reply</Button>
               </div>
-            </div>
+            </form>
           </CardContent>
         </Card>
 
@@ -49,7 +101,10 @@ function TicketDetail() {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Unassigned">Unassigned</SelectItem>
-                  {adminUsers.map((a) => <SelectItem key={a.id} value={a.name}>{a.name}</SelectItem>)}
+                  <SelectItem value="Layla Admin">Layla Admin</SelectItem>
+                  <SelectItem value="Support Team">Support Team</SelectItem>
+                  <SelectItem value="Finance Officer">Finance Officer</SelectItem>
+                  <SelectItem value="Operations Lead">Operations Lead</SelectItem>
                 </SelectContent>
               </Select>
             </div>

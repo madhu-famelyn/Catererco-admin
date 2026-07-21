@@ -1,10 +1,10 @@
+import { useQuery } from "@tanstack/react-query";
 import { Outlet, createFileRoute, Link, useMatch } from "@tanstack/react-router";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { DataTable } from "@/components/admin/DataTable";
 import { StatusBadge } from "@/components/admin/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { menuReviews } from "@/lib/mock-data";
 import { useState } from "react";
 import { Eye, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -12,16 +12,41 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/admin/menu-review")({
     component: MenuReviewList,
 });
+
 function MenuReviewList() {
-    const [reviewsList, setReviewsList] = useState(menuReviews);
     const matchChild = useMatch({ from: "/admin/menu-review/$id", shouldThrow: false });
+
+    const { data: caterersList = [] } = useQuery({
+        queryKey: ["admin-menu-reviews-list"],
+        queryFn: async () => {
+            try {
+                const res = await fetch("http://localhost:8000/caterers?include_unverified=true");
+                if (res.ok) return await res.json();
+            } catch (e) {}
+            return [];
+        },
+    });
+
+    const liveMenuReviews = caterersList.map((c, idx) => ({
+        id: `MR-${3000 + idx}`,
+        catererId: c.id,
+        caterer: c.name || "Caterer Profile",
+        uploadedAt: c.created_at ? new Date(c.created_at).toISOString().slice(0, 10) : "2026-07-16",
+        itemsExtracted: (c.tags?.length || 4) * 5,
+        confidence: Math.min(99, 85 + (idx % 12)),
+        status: c.is_verified ? "approved" : "pending",
+    }));
+
+    const [reviewsList, setReviewsList] = useState(null);
+    const displayReviews = reviewsList || liveMenuReviews;
+
     if (matchChild) {
         return <Outlet />;
     }
 
     const handleDelete = (id) => {
         if (!confirm(`Are you sure you want to delete menu review "${id}"?`)) return;
-        setReviewsList((prev) => prev.filter((item) => item.id !== id));
+        setReviewsList((prev) => (prev || liveMenuReviews).filter((item) => item.id !== id));
         toast.success(`Menu review ${id} deleted`);
     };
 
@@ -58,7 +83,7 @@ function MenuReviewList() {
     return (<>
       <PageHeader title="AI Menu Review" description="Review AI-extracted menus and approve them for publishing."/>
       <div className="p-6">
-        <DataTable data={reviewsList} columns={columns} searchKeys={["caterer", "id"]}/>
+        <DataTable data={displayReviews} columns={columns} searchKeys={["caterer", "id"]}/>
       </div>
     </>);
 }

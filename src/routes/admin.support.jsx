@@ -5,9 +5,11 @@ import { StatusBadge } from "@/components/admin/StatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { supportTickets } from "@/lib/mock-data";
-import { Eye } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Eye, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
+
 export const Route = createFileRoute("/admin/support")({
     component: SupportPage,
 });
@@ -17,13 +19,40 @@ const priorityStyle = {
     high: "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300",
     urgent: "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300",
 };
+
 function SupportPage() {
     const [type, setType] = useState("all");
+    const queryClient = useQueryClient();
+
+    const { data: liveTickets = [] } = useQuery({
+        queryKey: ["admin-support-tickets"],
+        queryFn: async () => {
+            try {
+                const res = await fetch("http://localhost:8000/support/tickets");
+                if (res.ok) return await res.json();
+            } catch (e) {}
+            return [];
+        },
+        refetchInterval: 5000,
+    });
+
     const matchChild = useMatch({ from: "/admin/support/$id", shouldThrow: false });
     if (matchChild) {
         return <Outlet />;
     }
-    const filtered = type === "all" ? supportTickets : supportTickets.filter((t) => t.type === type);
+
+    const handleDeleteTicket = async (id, sub) => {
+        if (!confirm(`Are you sure you want to delete support ticket "${sub}"?`)) return;
+        try {
+            await fetch(`http://localhost:8000/support/tickets/${id}`, { method: "DELETE" });
+            queryClient.invalidateQueries({ queryKey: ["admin-support-tickets"] });
+            toast.success(`Ticket ${id} deleted successfully`);
+        } catch (e) {
+            toast.error("Failed to delete ticket");
+        }
+    };
+
+    const filtered = type === "all" ? liveTickets : liveTickets.filter((t) => t.type === type);
     const columns = [
         { key: "id", header: "Ticket" },
         { key: "subject", header: "Subject" },
@@ -34,10 +63,19 @@ function SupportPage() {
         { key: "status", header: "Status", render: (r) => <StatusBadge status={r.status}/> },
         { key: "createdAt", header: "Created" },
         {
-            key: "actions", header: "",
-            render: (r) => (<Button asChild variant="ghost" size="sm">
-          <Link to="/admin/support/$id" params={{ id: r.id }}><Eye className="mr-1 h-4 w-4"/> Open</Link>
-        </Button>),
+            key: "actions",
+            header: "Actions",
+            className: "text-right pr-6 w-48",
+            render: (r) => (
+                <div className="flex items-center justify-end gap-2">
+                    <Button asChild variant="ghost" size="sm">
+                        <Link to="/admin/support/$id" params={{ id: r.id }}><Eye className="mr-1 h-4 w-4"/> Open</Link>
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-8 px-2 text-rose-500 hover:bg-rose-500/10 hover:text-rose-600" onClick={() => handleDeleteTicket(r.id, r.subject)}>
+                        <Trash2 className="h-3.5 w-3.5 mr-1"/> Delete
+                    </Button>
+                </div>
+            ),
         },
     ];
     return (<>

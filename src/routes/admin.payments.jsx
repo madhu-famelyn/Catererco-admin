@@ -7,13 +7,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Wallet, TrendingUp, ArrowDownToLine } from "lucide-react";
-import { payments, settlements, refunds } from "@/lib/mock-data";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/admin/payments")({
     component: PaymentsPage,
 });
+
 function PaymentsPage() {
     const { data: apiBookings = [] } = useQuery({
         queryKey: ["admin-all-bookings-payments"],
@@ -39,9 +39,34 @@ function PaymentsPage() {
         status: b.status === "completed" || b.status === "confirmed" ? "completed" : "pending",
     }));
 
+    const liveSettlements = apiBookings.map((b, i) => {
+        const gross = b.amount;
+        const comm = Math.round(gross * 0.1);
+        return {
+            id: `SET-${700 + i}`,
+            caterer: b.caterer,
+            period: "Jul 2026",
+            gross,
+            commission: comm,
+            net: gross - comm,
+            status: b.status === "completed" ? "completed" : "pending",
+        };
+    });
+
+    const liveRefunds = apiBookings.filter((b) => b.status === "cancelled").map((b, i) => ({
+        id: `REF-${900 + i}`,
+        bookingId: b.id,
+        customer: b.customer,
+        amount: b.amount,
+        reason: "Customer cancellation request",
+        date: b.eventDate || "2026-07-16",
+        status: "pending",
+    }));
+
     const totalRevenue = livePayments.reduce((s, p) => s + p.amount, 0);
     const totalCommission = livePayments.reduce((s, p) => s + p.commission, 0);
-    const pendingPayouts = settlements.filter((s) => s.status === "pending").reduce((s, x) => s + x.net, 0);
+    const pendingPayouts = liveSettlements.filter((s) => s.status === "pending").reduce((s, x) => s + x.net, 0);
+
     const paymentCols = [
         { key: "id", header: "Payment" },
         { key: "bookingId", header: "Booking" },
@@ -108,10 +133,10 @@ function PaymentsPage() {
                 <DataTable data={livePayments} columns={paymentCols} searchKeys={["id", "customer", "caterer", "bookingId"]}/>
               </TabsContent>
               <TabsContent value="settlements" className="mt-4">
-                <DataTable data={settlements} columns={settlementCols} searchKeys={["id", "caterer"]}/>
+                <DataTable data={liveSettlements} columns={settlementCols} searchKeys={["id", "caterer"]}/>
               </TabsContent>
               <TabsContent value="refunds" className="mt-4">
-                <DataTable data={refunds} columns={refundCols} searchKeys={["id", "customer", "bookingId"]}/>
+                <DataTable data={liveRefunds} columns={refundCols} searchKeys={["id", "customer", "bookingId"]}/>
               </TabsContent>
             </Tabs>
           </CardContent>

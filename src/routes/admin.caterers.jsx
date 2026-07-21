@@ -8,7 +8,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Eye, Download, Check, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { caterers as mockCaterers } from "@/lib/mock-data";
 export const Route = createFileRoute("/admin/caterers")({
     component: CaterersPage,
 });

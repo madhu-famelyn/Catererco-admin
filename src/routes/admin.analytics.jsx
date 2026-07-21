@@ -5,6 +5,9 @@ import { Button } from "@/components/ui/button";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, Legend, } from "recharts";
 import { useQuery } from "@tanstack/react-query";
 import { Download } from "lucide-react";
+import { customerGrowth, popularEventTypes, popularCuisines } from "@/lib/mock-data";
+
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/analytics")({
     component: AnalyticsPage,
@@ -44,8 +47,30 @@ function AnalyticsPage() {
         revenue: c.revenue ?? 0,
         rating: c.rating ?? 5.0,
     })).sort((a, b) => b.revenue - a.revenue);
+
+    const handleExportReport = () => {
+        const headers = ["Section", "Metric_Or_Name", "Value_Or_Bookings", "Extra_Info_Or_Revenue"];
+        const rows = [
+            ...liveRevenueOverview.map((r) => ["Monthly Revenue", r.month, `AED ${r.revenue}`, `Commission: AED ${r.commission || 0}`]),
+            ...liveBookingTrends.map((b) => ["Booking Trends", b.month, `${b.bookings} Bookings`, "-"]),
+            ...customerGrowth.map((g) => ["Customer Growth", g.month, `${g.customers} Customers`, "-"]),
+            ...topCaterers.map((c) => ["Top Caterer", `"${c.name.replace(/"/g, '""')}"`, `${c.bookings} Bookings`, `AED ${c.revenue}`]),
+        ];
+
+        const csvString = [headers.join(","), ...rows.map((row) => row.join(","))].join("\n");
+        const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", `marketplace_analytics_report_${new Date().toISOString().slice(0, 10)}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast.success("Analytics Report CSV exported successfully!");
+    };
+
     return (<>
-      <PageHeader title="Analytics" description="Revenue, growth and marketplace performance." actions={<Button variant="outline"><Download className="mr-2 h-4 w-4"/> Export Report</Button>}/>
+      <PageHeader title="Analytics" description="Revenue, growth and marketplace performance." actions={<Button variant="outline" onClick={handleExportReport}><Download className="mr-2 h-4 w-4"/> Export Report</Button>}/>
       <div className="grid gap-6 p-6 lg:grid-cols-2">
         <Card>
           <CardHeader><CardTitle>Monthly Revenue</CardTitle></CardHeader>

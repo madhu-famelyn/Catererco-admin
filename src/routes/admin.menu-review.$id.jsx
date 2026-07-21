@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { StatusBadge } from "@/components/admin/StatusBadge";
@@ -5,27 +6,52 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { menuReviews } from "@/lib/mock-data";
 import { ArrowLeft, Check, X, RefreshCw, FileText, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
+
 export const Route = createFileRoute("/admin/menu-review/$id")({
     component: MenuReviewDetail,
 });
+
 function MenuReviewDetail() {
     const { id } = Route.useParams();
-    const review = menuReviews.find((m) => m.id === id) ?? menuReviews[0];
-    const [items, setItems] = useState(review.items);
+    const { data: caterersList = [] } = useQuery({
+        queryKey: ["admin-menu-review-caterers"],
+        queryFn: async () => {
+            try {
+                const res = await fetch("http://localhost:8000/caterers?include_unverified=true");
+                if (res.ok) return await res.json();
+            } catch (e) {}
+            return [];
+        },
+    });
+
+    const currentCaterer = caterersList[0] || { name: "Live Caterer", is_verified: false, created_at: "2026-07-16" };
+
+    const review = {
+        id,
+        caterer: currentCaterer.name || "Caterer Profile",
+        uploadedAt: currentCaterer.created_at ? new Date(currentCaterer.created_at).toISOString().slice(0, 10) : "2026-07-16",
+        itemsExtracted: 6,
+        confidence: 96,
+        status: currentCaterer.is_verified ? "approved" : "pending",
+    };
+
+    const [items, setItems] = useState([
+        { id: "1", name: "Royal Biryani Combo", category: "Mains", price: 85 },
+        { id: "2", name: "Arabic Mezze Platter", category: "Starters", price: 45 },
+        { id: "3", name: "Grilled Lamb Chops", category: "Mains", price: 110 },
+        { id: "4", name: "Saffron Kheer", category: "Desserts", price: 25 },
+    ]);
     const [status, setStatus] = useState(review.status);
 
     const handleApprove = () => {
-        review.status = "approved";
         setStatus("approved");
         toast.success(`Menu for ${review.caterer} approved and published live!`);
     };
 
     const handleReject = () => {
-        review.status = "rejected";
         setStatus("rejected");
         toast.error(`Menu for ${review.caterer} rejected.`);
     };

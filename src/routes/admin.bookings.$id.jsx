@@ -1,24 +1,62 @@
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { StatusBadge } from "@/components/admin/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { bookings } from "@/lib/mock-data";
 import { ArrowLeft, XCircle, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
+
 export const Route = createFileRoute("/admin/bookings/$id")({
     component: BookingDetail,
 });
+
 const timeline = [
-    { date: "2025-11-01 09:12", label: "Booking created" },
-    { date: "2025-11-01 10:04", label: "Deposit paid" },
-    { date: "2025-11-02 14:20", label: "Caterer confirmed" },
-    { date: "2025-11-15 08:00", label: "Menu finalized" },
+    { date: "2026-07-16 09:12", label: "Booking created" },
+    { date: "2026-07-16 10:04", label: "Deposit paid" },
+    { date: "2026-07-16 14:20", label: "Caterer confirmed" },
     { date: "Event day", label: "Service delivered" },
 ];
+
 function BookingDetail() {
     const { id } = Route.useParams();
-    const b = bookings.find((x) => x.id === id) ?? bookings[0];
+    const { data: apiBooking } = useQuery({
+        queryKey: ["admin-booking-detail", id],
+        queryFn: async () => {
+            try {
+                const res = await fetch(`http://localhost:8000/bookings/${id}`);
+                if (res.ok) return await res.json();
+            } catch (e) {}
+            return null;
+        },
+    });
+
+    const b = apiBooking ? {
+        id: apiBooking.id,
+        eventType: apiBooking.event || "Event",
+        eventDate: apiBooking.date || "Scheduled Date",
+        guests: apiBooking.guests || 0,
+        amount: apiBooking.total || 0,
+        status: apiBooking.status || "confirmed",
+        customer: apiBooking.customer_name || "Customer",
+        customerId: apiBooking.customer_id || "CU-1",
+        caterer: apiBooking.caterer_name || "Caterer Profile",
+        catererId: apiBooking.caterer_id || "c1",
+        createdAt: apiBooking.created_at ? new Date(apiBooking.created_at).toLocaleDateString() : "Recently",
+    } : {
+        id,
+        eventType: "Booking",
+        eventDate: "-",
+        guests: 0,
+        amount: 0,
+        status: "pending",
+        customer: "Loading...",
+        customerId: "CU-1",
+        caterer: "Loading...",
+        catererId: "c1",
+        createdAt: "-",
+    };
+
     return (<>
       <PageHeader title={`Booking ${b.id}`} description={`${b.eventType} · ${b.eventDate}`} actions={<>
             <Button variant="outline" asChild><Link to="/admin/bookings"><ArrowLeft className="mr-2 h-4 w-4"/> Back</Link></Button>
@@ -47,7 +85,7 @@ function BookingDetail() {
             <p className="font-medium">{b.customer}</p>
             <p className="text-muted-foreground">{b.customerId}</p>
             <Button variant="outline" size="sm" asChild>
-              <Link to="/admin/customers/$id" params={{ id: b.customerId }}>View profile</Link>
+              <Link to="/admin/customers/$id" params={{ id: String(b.customerId) }}>View profile</Link>
             </Button>
           </CardContent>
         </Card>
@@ -58,7 +96,7 @@ function BookingDetail() {
             <p className="font-medium">{b.caterer}</p>
             <p className="text-muted-foreground">{b.catererId}</p>
             <Button variant="outline" size="sm" asChild>
-              <Link to="/admin/caterers/$id" params={{ id: b.catererId }}>View profile</Link>
+              <Link to="/admin/caterers/$id" params={{ id: String(b.catererId) }}>View profile</Link>
             </Button>
           </CardContent>
         </Card>

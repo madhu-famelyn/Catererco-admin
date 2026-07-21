@@ -7,21 +7,22 @@ import { Button } from "@/components/ui/button";
 import { CalendarCheck, Wallet, ChefHat, Users, ClipboardCheck, Sparkles, LifeBuoy, ArrowRight, Plus, Download, } from "lucide-react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, } from "recharts";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
+import { toast } from "sonner";
+
 export const Route = createFileRoute("/admin/")({
     component: DashboardPage,
 });
+
 function DashboardPage() {
+    const navigate = useNavigate();
     const { data: apiDashboard } = useQuery({
         queryKey: ["admin-dashboard-stats"],
         queryFn: async () => {
-            if (typeof window === "undefined")
-                return null;
             try {
                 const res = await fetch("http://localhost:8000/dashboard/admin");
-                if (res.ok)
-                    return await res.json();
-            }
-            catch (e) { }
+                if (res.ok) return await res.json();
+            } catch (e) {}
             return null;
         },
         refetchInterval: 3000,
@@ -39,12 +40,37 @@ function DashboardPage() {
     const liveRevenueOverview = apiDashboard?.revenueOverview || [];
     const liveBookingTrends = apiDashboard?.bookingTrends || [];
 
+    const handleExportDashboard = () => {
+        const headers = ["Metric", "Value", "Notes"];
+        const rows = [
+            ["Total Bookings", stats.totalBookings, "Live Database Count"],
+            ["Total Revenue", `AED ${stats.totalRevenue}`, "Live Revenue Sum"],
+            ["Active Caterers", stats.activeCaterers, "Verified Active Caterers"],
+            ["Active Customers", stats.activeCustomers, "Registered Accounts"],
+            ["Pending Caterer Approvals", stats.pendingCatererApprovals, "Awaiting Review"],
+            ["Pending Menu Reviews", stats.pendingMenuReviews, "AI Extraction Queue"],
+            ["Open Support Tickets", stats.openSupportTickets, "Active Support SLA"],
+            ...liveRecentBookings.map((b) => ["Recent Booking", b.id, `Customer: ${b.customer} | Caterer: ${b.caterer} | Amount: AED ${b.amount}`]),
+        ];
+
+        const csvString = [headers.join(","), ...rows.map((row) => row.join(","))].join("\n");
+        const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", `marketplace_dashboard_export_${new Date().toISOString().slice(0, 10)}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast.success("Dashboard summary exported successfully!");
+    };
+
     return (<>
       <PageHeader title="Dashboard" description="Snapshot of your marketplace performance." actions={<>
-            <Button variant="outline" className="border-white/10 bg-white/[0.02] hover:bg-white/[0.06]">
+            <Button variant="outline" onClick={handleExportDashboard} className="border-white/10 bg-white/[0.02] hover:bg-white/[0.06]">
               <Download className="mr-2 h-4 w-4"/> Export
             </Button>
-            <Button className="shadow-[0_0_30px_-6px_var(--color-primary)]">
+            <Button onClick={() => navigate({ to: "/admin/notifications" })} className="shadow-[0_0_30px_-6px_var(--color-primary)]">
               <Plus className="mr-2 h-4 w-4"/> New announcement
             </Button>
           </>}/>

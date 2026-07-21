@@ -5,16 +5,17 @@ import { StatusBadge } from "@/components/admin/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { caterers } from "@/lib/mock-data";
 import { ArrowLeft, Check, X, FileText, Download, MailPlus } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+
 export const Route = createFileRoute("/admin/caterers/$id")({
     component: CatererDetail,
 });
+
 function CatererDetail() {
     const { id } = Route.useParams();
     const queryClient = useQueryClient();
@@ -22,53 +23,47 @@ function CatererDetail() {
     const { data: apiCaterer, refetch } = useQuery({
         queryKey: ["admin-caterer-detail", id],
         queryFn: async () => {
-            if (typeof window === "undefined")
-                return null;
             try {
                 const res = await fetch(`http://localhost:8000/caterers/${id}`);
-                if (res.ok)
-                    return await res.json();
-            }
-            catch (e) { }
+                if (res.ok) return await res.json();
+            } catch (e) {}
             return null;
         },
     });
-    const mockMatch = caterers.find((x) => x.id === id);
-    const c = (apiCaterer && apiCaterer.id)
-        ? {
-            id: apiCaterer.id,
-            name: apiCaterer.name || apiCaterer.business_name || "Caterer Profile",
-            owner: apiCaterer.contact_person || apiCaterer.owner || "Not Provided",
-            email: apiCaterer.email || "Not Provided",
-            phone: apiCaterer.phone || "Not Provided",
-            city: apiCaterer.emirate || apiCaterer.location || apiCaterer.city || "Not Specified",
-            tradeLicense: apiCaterer.trade_license || apiCaterer.tradeLicense || "Not Uploaded",
-            vatNumber: apiCaterer.vat_number || apiCaterer.vatNumber || "Not Provided",
-            rating: apiCaterer.rating ? `${apiCaterer.rating} / 5 (${apiCaterer.reviews || 0} reviews)` : "No reviews yet",
-            joinedAt: apiCaterer.created_at ? new Date(apiCaterer.created_at).toLocaleDateString() : "Recently",
-            bookings: apiCaterer.bookings ?? 0,
-            revenue: apiCaterer.revenue ?? 0,
-            status: apiCaterer.is_verified ? "approved" : (apiCaterer.status || "pending"),
-            documents: Array.isArray(apiCaterer.documents) && apiCaterer.documents.length > 0
-                ? apiCaterer.documents 
-                : ["Trade License (PDF)", "VAT Certificate (PDF)", "Emirates ID (Copy)"],
-        }
-        : (mockMatch || {
-            id: id || "c1",
-            name: "Caterer Profile",
-            owner: "Contact Person",
-            email: "ops@caterer.ae",
-            phone: "+971 4 123 4567",
-            city: "Dubai",
-            tradeLicense: "TL-UAE-9921",
-            vatNumber: "100-234-567-89",
-            rating: "4.9 / 5",
-            joinedAt: "Jan 2026",
-            bookings: 10,
-            revenue: 20000,
-            status: "approved",
-            documents: ["Trade License.pdf", "VAT Certificate.pdf"],
-        });
+
+    const c = apiCaterer ? {
+        id: apiCaterer.id,
+        name: apiCaterer.name || apiCaterer.business_name || "Caterer Profile",
+        owner: apiCaterer.contact_person || apiCaterer.owner || "Not Provided",
+        email: apiCaterer.email || "Not Provided",
+        phone: apiCaterer.phone || "Not Provided",
+        city: apiCaterer.emirate || apiCaterer.location || apiCaterer.city || "Not Specified",
+        tradeLicense: apiCaterer.trade_license || apiCaterer.tradeLicense || "Not Uploaded",
+        vatNumber: apiCaterer.vat_number || apiCaterer.vatNumber || "Not Provided",
+        rating: apiCaterer.rating ? `${apiCaterer.rating} / 5 (${apiCaterer.reviews || 0} reviews)` : "No reviews yet",
+        joinedAt: apiCaterer.created_at ? new Date(apiCaterer.created_at).toLocaleDateString() : "Recently",
+        bookings: apiCaterer.bookings ?? 0,
+        revenue: apiCaterer.revenue ?? 0,
+        status: apiCaterer.is_verified ? "approved" : (apiCaterer.status || "pending"),
+        documents: Array.isArray(apiCaterer.documents) && apiCaterer.documents.length > 0
+            ? apiCaterer.documents 
+            : ["Trade License (PDF)", "VAT Certificate (PDF)", "Emirates ID (Copy)"],
+    } : {
+        id: id || "c1",
+        name: "Loading...",
+        owner: "-",
+        email: "-",
+        phone: "-",
+        city: "-",
+        tradeLicense: "-",
+        vatNumber: "-",
+        rating: "-",
+        joinedAt: "-",
+        bookings: 0,
+        revenue: 0,
+        status: "pending",
+        documents: ["Trade License (PDF)", "VAT Certificate (PDF)"],
+    };
 
     const docs = Array.isArray(c.documents) ? c.documents : ["Trade License (PDF)", "VAT Certificate (PDF)"];
     const revenueVal = Number(c.revenue || 0);
