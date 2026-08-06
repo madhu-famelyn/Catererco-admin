@@ -14,10 +14,10 @@ function CustomersPage() {
     const queryClient = useQueryClient();
     const matchChild = useMatch({ from: "/admin/customers/$id", shouldThrow: false });
     const { data: usersList = [], isLoading } = useQuery({
-        queryKey: ["admin-users"],
+        queryKey: ["admin-users-customers"],
         queryFn: async () => {
             try {
-                const res = await fetch("http://localhost:8000/users");
+                const res = await fetch("http://localhost:8000/users?role=customer");
                 if (res.ok) return await res.json();
             } catch (e) {}
             return [];
@@ -30,11 +30,10 @@ function CustomersPage() {
     }
 
     const handleDeleteUser = async (rawId, name) => {
-        const numericId = String(rawId).replace("CU-", "");
         if (!confirm(`Are you sure you want to delete customer account "${name}"?`)) return;
         try {
-            await fetch(`http://localhost:8000/users/${numericId}`, { method: "DELETE" });
-            queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+            await fetch(`http://localhost:8000/users/${rawId}`, { method: "DELETE" });
+            queryClient.invalidateQueries({ queryKey: ["admin-users-customers"] });
             queryClient.invalidateQueries({ queryKey: ["admin-dashboard-stats"] });
             toast.success(`Customer "${name}" deleted successfully`);
         } catch (e) {
@@ -42,16 +41,20 @@ function CustomersPage() {
         }
     };
 
-    const mappedUsers = usersList.map((u) => ({
-        id: `CU-${u.id}`,
-        rawId: u.id,
-        name: `${u.first_name} ${u.last_name}`,
-        email: u.email,
-        city: u.preferred_emirate || "Dubai",
-        totalBookings: u.bookings_count ?? 0,
-        totalSpent: u.total_spent ?? 0,
-        status: u.is_verified ? "active" : "pending",
-    }));
+    const mappedUsers = usersList
+        .filter((u) => u.role === "customer")
+        .map((u, index) => ({
+            id: `CU-${String(index + 1).padStart(3, "0")}`,
+            rawId: u.id,
+            name: `${u.first_name || ""} ${u.last_name || ""}`.trim() || "Customer Account",
+            email: u.email,
+            city: u.preferred_emirate || "Dubai",
+            totalBookings: u.bookings_count ?? 0,
+            totalSpent: u.total_spent ?? 0,
+            status: u.is_verified ? "active" : "pending",
+        }));
+
+
     const columns = [
         { key: "id", header: "ID" },
         { key: "name", header: "Name" },
@@ -70,7 +73,7 @@ function CustomersPage() {
               <Eye className="mr-1 h-4 w-4"/> View
             </Link>
           </Button>
-          <Button variant="ghost" size="sm" className="h-8 px-2 text-rose-500 hover:bg-rose-500/10 hover:text-rose-600" onClick={() => handleDeleteUser(r.id, r.name)}>
+          <Button variant="ghost" size="sm" className="h-8 px-2 text-rose-500 hover:bg-rose-500/10 hover:text-rose-600" onClick={() => handleDeleteUser(r.rawId, r.name)}>
             <Trash2 className="h-3.5 w-3.5 mr-1"/> Delete
           </Button>
         </div>),

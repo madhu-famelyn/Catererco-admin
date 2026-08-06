@@ -1,6 +1,7 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Outlet, Link, createRootRouteWithContext, useRouter, HeadContent, Scripts, } from "@tanstack/react-router";
 import { useEffect } from "react";
+import { Toaster } from "sonner";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { ThemeProvider } from "../components/theme-provider";
@@ -87,12 +88,14 @@ function RootShell({ children }) {
     </body>
   </html>);
 }
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (<QueryClientProvider client={queryClient}>
     <ThemeProvider>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
+      {typeof window !== "undefined" && <Toaster richColors position="top-right" />}
     </ThemeProvider>
   </QueryClientProvider>);
 }
