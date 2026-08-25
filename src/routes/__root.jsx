@@ -95,7 +95,7 @@ function RootComponent() {
     <ThemeProvider>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
-      {typeof window !== "undefined" && <Toaster richColors position="top-right" />}
+      <Toaster richColors position="top-right" />
     </ThemeProvider>
   </QueryClientProvider>);
 }

@@ -42,7 +42,10 @@ function AdminLayout() {
 
     const fetchLiveNotifications = async () => {
         try {
-            const res = await fetch("http://localhost:8000/notifications");
+            const token = localStorage.getItem("auth_token");
+            const res = await fetch("http://localhost:8000/notifications", {
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
             if (res.ok) {
                 const data = await res.json();
                 if (Array.isArray(data)) {
@@ -59,7 +62,7 @@ function AdminLayout() {
                 }
             }
         } catch (e) {
-            console.log("Could not load backend notifications:", e);
+            // Silently handle transient connection errors during server reloads or background polling
         }
     };
 

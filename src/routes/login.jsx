@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { UtensilsCrossed, Eye, EyeOff } from "lucide-react";
+import { UtensilsCrossed, Eye, EyeOff, Loader2 } from "lucide-react";
 import { useState } from "react";
 export const Route = createFileRoute("/login")({
     component: LoginPage,
@@ -13,6 +13,35 @@ function LoginPage() {
     const [email, setEmail] = useState("admin@catererco.ae");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError("");
+        setLoading(true);
+        try {
+            const apiBase = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
+            const res = await fetch(`${apiBase}/auth/login`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                setError(data.detail || "Invalid email or password");
+                return;
+            }
+            localStorage.setItem("auth_token", data.access_token);
+            localStorage.setItem("auth_user", JSON.stringify(data.user));
+            navigate({ to: "/admin" });
+        } catch (err) {
+            setError("Could not connect to server. Make sure the backend is running.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (<div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary/5 via-background to-primary/10 px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
@@ -23,10 +52,7 @@ function LoginPage() {
           <p className="text-sm text-muted-foreground">CatererCo Admin</p>
         </CardHeader>
         <CardContent>
-          <form className="space-y-4" onSubmit={(e) => {
-            e.preventDefault();
-            navigate({ to: "/admin" });
-        }}>
+          <form className="space-y-4" onSubmit={handleSubmit}>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required/>
@@ -45,10 +71,12 @@ function LoginPage() {
                 </button>
               </div>
             </div>
-            <Button type="submit" className="w-full">Sign in</Button>
-            <p className="text-center text-xs text-muted-foreground">
-              Demo: use any credentials to explore the dashboard.
-            </p>
+            {error && (
+              <p className="rounded-md bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">{error}</p>
+            )}
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Signing in…</> : "Sign in"}
+            </Button>
           </form>
         </CardContent>
       </Card>
