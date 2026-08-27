@@ -30,6 +30,7 @@ function CaterersPage() {
         address: "",
         trade_license: "",
         vat_number: "",
+        min_order_plates: 20,
         auto_approve: true,
     });
 
@@ -98,6 +99,7 @@ function CaterersPage() {
                 address: newCaterer.address ? newCaterer.address.trim() : `${newCaterer.emirate || "Dubai"} Central`,
                 trade_license: newCaterer.trade_license ? newCaterer.trade_license.trim() : "TL-99210",
                 vat_number: newCaterer.vat_number ? newCaterer.vat_number.trim() : "100-234-567-89",
+                min_order_plates: Number(newCaterer.min_order_plates) || 20,
                 auto_approve: newCaterer.auto_approve,
             };
 
@@ -122,6 +124,7 @@ function CaterersPage() {
                     address: "",
                     trade_license: "",
                     vat_number: "",
+                    min_order_plates: 20,
                     auto_approve: true,
                 });
             } else {
@@ -145,6 +148,9 @@ function CaterersPage() {
         owner: c.contact_person || c.contact || c.owner || c.owner_name || "Official Contact",
         city: c.emirate || c.location || c.city || "Dubai",
         tradeLicense: c.trade_license || c.tradeLicense || "TL-849201",
+        minPlates: c.min_order_plates ?? 20,
+        isEcoFriendly: Boolean(c.is_eco_friendly),
+        iso14001: Boolean(c.iso_14001_certified),
         menuCount: c.menu_items_count ?? 0,
         bookings: c.bookings ?? 0,
         revenue: c.revenue ?? 0,
@@ -156,9 +162,27 @@ function CaterersPage() {
     const columns = [
         { key: "sNo", header: "#", render: (r) => <span className="font-semibold text-muted-foreground text-xs">#{r.sNo}</span> },
         { key: "displayId", header: "Caterer ID", render: (r) => <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-muted text-foreground">{r.displayId}</span> },
-        { key: "name", header: "Business" },
+        {
+            key: "name",
+            header: "Business",
+            render: (r) => (
+                <div className="flex flex-col">
+                    <span className="font-semibold text-foreground">{r.name}</span>
+                    {r.iso14001 ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
+                            🌱 ISO 14001 Certified
+                        </span>
+                    ) : r.isEcoFriendly ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400 mt-0.5">
+                            🌱 Eco-Friendly
+                        </span>
+                    ) : null}
+                </div>
+            ),
+        },
         { key: "owner", header: "Owner" },
         { key: "city", header: "City" },
+        { key: "minPlates", header: "Min. Plates", render: (r) => <span className="font-semibold text-xs px-2 py-0.5 rounded bg-muted text-foreground">{r.minPlates > 0 ? `${r.minPlates} plates` : "No Min"}</span> },
         { key: "tradeLicense", header: "Trade License" },
         {
             key: "menuCount",
@@ -366,6 +390,23 @@ function CaterersPage() {
                                     value={newCaterer.vat_number}
                                     onChange={(e) => setNewCaterer({ ...newCaterer, vat_number: e.target.value })}
                                 />
+                            </div>
+
+                            <div className="space-y-2 md:col-span-2">
+                                <Label htmlFor="min_order_plates" className="font-medium text-foreground">
+                                    Minimum Order Requirement (Plates / Guests)
+                                </Label>
+                                <Input
+                                    id="min_order_plates"
+                                    type="number"
+                                    min="0"
+                                    placeholder="0 (No minimum)"
+                                    value={newCaterer.min_order_plates}
+                                    onChange={(e) => setNewCaterer({ ...newCaterer, min_order_plates: e.target.value })}
+                                />
+                                <p className="text-[11px] text-muted-foreground">
+                                    Minimum plates required to take an order (e.g. 20 plates, or 0 for no minimum).
+                                </p>
                             </div>
 
                             <div className="space-y-2 md:col-span-2">

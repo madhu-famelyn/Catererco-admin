@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Check, X, FileText, Download, MailPlus } from "lucide-react";
+import { ArrowLeft, Check, X, FileText, Download, MailPlus, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -31,6 +31,30 @@ function CatererDetail() {
         },
     });
 
+    const rawDocs = [];
+    if (Array.isArray(apiCaterer?.documents)) {
+        rawDocs.push(...apiCaterer.documents);
+    }
+    if (Array.isArray(apiCaterer?.certifications)) {
+        for (const cert of apiCaterer.certifications) {
+            if (!rawDocs.some(d => String(d) === String(cert))) {
+                rawDocs.push(cert);
+            }
+        }
+    }
+    if (apiCaterer?.trade_license && !rawDocs.some(d => String(d).includes("Trade License"))) {
+        rawDocs.push(`Trade License #${apiCaterer.trade_license} (PDF)`);
+    }
+    if (apiCaterer?.vat_number && !rawDocs.some(d => String(d).includes("VAT Certificate"))) {
+        rawDocs.push(`VAT Certificate #${apiCaterer.vat_number} (PDF)`);
+    }
+    if (apiCaterer?.iso_14001_certificate && !rawDocs.some(d => String(d).includes(apiCaterer.iso_14001_certificate))) {
+        rawDocs.push(`ISO 14001 Certificate: ${apiCaterer.iso_14001_certificate}`);
+    }
+    if (rawDocs.length === 0) {
+        rawDocs.push("Trade License (PDF)", "VAT Certificate (PDF)");
+    }
+
     const c = apiCaterer ? {
         id: apiCaterer.id,
         name: apiCaterer.name || apiCaterer.business_name || "Caterer Profile",
@@ -45,9 +69,7 @@ function CatererDetail() {
         bookings: apiCaterer.bookings ?? 0,
         revenue: apiCaterer.revenue ?? 0,
         status: apiCaterer.is_verified ? "approved" : (apiCaterer.status || "pending"),
-        documents: Array.isArray(apiCaterer.documents) && apiCaterer.documents.length > 0
-            ? apiCaterer.documents 
-            : ["Trade License (PDF)", "VAT Certificate (PDF)", "Emirates ID (Copy)"],
+        documents: rawDocs,
     } : {
         id: id || "c1",
         name: "Loading...",
@@ -65,7 +87,7 @@ function CatererDetail() {
         documents: ["Trade License (PDF)", "VAT Certificate (PDF)"],
     };
 
-    const docs = Array.isArray(c.documents) ? c.documents : ["Trade License (PDF)", "VAT Certificate (PDF)"];
+    const docs = c.documents;
     const revenueVal = Number(c.revenue || 0);
 
     const handleApprove = async () => {
@@ -160,27 +182,64 @@ function CatererDetail() {
                 <TabsTrigger value="history">Verification History</TabsTrigger>
               </TabsList>
               <TabsContent value="documents" className="mt-4">
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {docs.map((d, idx) => {
-                    const hasUrl = typeof d === "string" && (d.includes("http://") || d.includes("https://"));
-                    let title = d;
+                    const strDoc = typeof d === "string" ? d : (d?.url || d?.name || JSON.stringify(d));
+                    const urlMatch = strDoc.match(/(https?:\/\/[^\s"'<>]+|\/static_uploads\/[^\s"'<>]+)/i);
                     let url = null;
-                    if (hasUrl) {
-                      const match = d.match(/(https?:\/\/[^\s]+)/);
-                      if (match) {
-                        url = match[1];
-                        title = d.replace(url, "").replace(/:\s*$/, "").trim() || "Uploaded Document";
+                    let title = strDoc;
+                    let isUploaded = false;
+
+                    if (urlMatch) {
+                      url = urlMatch[1];
+                      if (url.startsWith("/static_uploads/")) {
+                        url = `http://localhost:8000${url}`;
                       }
+                      title = strDoc.replace(urlMatch[1], "").replace(/:\s*$/, "").trim() || url.split("/").pop() || "Uploaded Document";
+                      isUploaded = true;
+                    } else if (strDoc.startsWith("http://") || strDoc.startsWith("https://")) {
+                      url = strDoc;
+                      title = strDoc.split("/").pop() || "Uploaded Document";
+                      isUploaded = true;
                     }
+
+                    const isIso = title.includes("ISO 14001") || strDoc.includes("ISO 14001");
+
                     return (
-                      <div key={idx} className="flex items-center justify-between rounded-lg border p-3 hover:border-primary/50 transition-colors">
-                        <div className="flex items-center gap-2 overflow-hidden pr-2">
-                          <FileText className="h-4 w-4 shrink-0 text-primary"/>
-                          <span className="text-sm truncate font-medium">{title}</span>
+                      <div key={idx} className="flex flex-col justify-between rounded-xl border p-4 hover:border-primary/50 transition-all bg-card/50 shadow-xs space-y-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2.5 overflow-hidden">
+                            <div className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${isIso ? "bg-emerald-500/10 text-emerald-600" : "bg-primary/10 text-primary"}`}>
+                              <FileText className="h-4 w-4"/>
+                            </div>
+                            <div className="overflow-hidden">
+                              <span className="text-sm font-semibold truncate block text-foreground">{title}</span>
+                              <span className="text-[11px] text-muted-foreground">
+                                {isUploaded ? "Uploaded Document" : "Registered Number / Record"}
+                              </span>
+                            </div>
+                          </div>
+                          {isUploaded && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300">
+                              Attached
+                            </span>
+                          )}
                         </div>
-                        <Button variant="outline" size="sm" className="gap-1 text-xs shrink-0" onClick={() => setSelectedDoc({ title, url, owner: c.owner, license: c.tradeLicense, vat: c.vatNumber })}>
-                          <Download className="h-3.5 w-3.5"/> View
-                        </Button>
+
+                        <div className="flex items-center justify-between pt-1 border-t border-border/50">
+                          {url ? (
+                            <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1">
+                              <ExternalLink className="h-3 w-3"/> Open Direct URL
+                            </a>
+                          ) : (
+                            <span className="text-xs font-mono text-muted-foreground truncate max-w-[150px]">
+                              {title.match(/#([^\s]+)/)?.[0] || c.tradeLicense || "Verified"}
+                            </span>
+                          )}
+                          <Button variant="outline" size="sm" className="gap-1.5 text-xs h-7 px-2.5" onClick={() => setSelectedDoc({ title, url, owner: c.owner, license: c.tradeLicense, vat: c.vatNumber })}>
+                            <Download className="h-3.5 w-3.5"/> View
+                          </Button>
+                        </div>
                       </div>
                     );
                   })}
@@ -189,23 +248,28 @@ function CatererDetail() {
 
               {selectedDoc && (
                 <Dialog open={!!selectedDoc} onOpenChange={() => setSelectedDoc(null)}>
-                  <DialogContent className="max-w-2xl">
+                  <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
                     <DialogHeader>
                       <DialogTitle className="flex items-center gap-2">
                         <FileText className="h-5 w-5 text-primary"/> {selectedDoc.title}
                       </DialogTitle>
                     </DialogHeader>
-                    <div className="space-y-4 my-2 border rounded-lg p-6 bg-muted/20">
+                    <div className="flex-1 overflow-y-auto space-y-4 my-2 border rounded-xl p-4 bg-muted/20">
                       {selectedDoc.url ? (
                         <div className="space-y-3 text-center">
                           {selectedDoc.url.match(/\.(jpg|jpeg|png|webp)/i) ? (
-                            <img src={selectedDoc.url} alt={selectedDoc.title} className="max-h-96 rounded border mx-auto object-contain"/>
+                            <img src={selectedDoc.url} alt={selectedDoc.title} className="max-h-[500px] rounded-lg border mx-auto object-contain bg-white"/>
                           ) : (
-                            <iframe src={selectedDoc.url} title={selectedDoc.title} className="w-full h-80 rounded border"/>
+                            <iframe src={selectedDoc.url} title={selectedDoc.title} className="w-full h-[500px] rounded-lg border bg-white"/>
                           )}
-                          <a href={selectedDoc.url} target="_blank" rel="noreferrer" className="inline-block mt-2">
-                            <Button size="sm"><Download className="mr-2 h-4 w-4"/> Open Original File</Button>
-                          </a>
+                          <div className="flex items-center justify-center gap-2 pt-2">
+                            <a href={selectedDoc.url} target="_blank" rel="noopener noreferrer">
+                              <Button size="sm" className="gap-1.5"><ExternalLink className="h-4 w-4"/> Open in New Tab</Button>
+                            </a>
+                            <a href={selectedDoc.url} download target="_blank" rel="noopener noreferrer">
+                              <Button variant="outline" size="sm" className="gap-1.5"><Download className="h-4 w-4"/> Download File</Button>
+                            </a>
+                          </div>
                         </div>
                       ) : (
                         <div className="space-y-4">
@@ -225,8 +289,8 @@ function CatererDetail() {
                             <span className="text-sm font-semibold uppercase text-muted-foreground">VAT Registration</span>
                             <span className="font-mono font-medium">{selectedDoc.vat}</span>
                           </div>
-                          <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-4 text-xs text-emerald-400 flex items-center gap-2">
-                            <Check className="h-4 w-4 text-emerald-400 shrink-0"/> Official UAE Regulatory Verification Record · Verified Active
+                          <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-4 text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
+                            <Check className="h-4 w-4 text-emerald-500 shrink-0"/> Official UAE Regulatory Verification Record · Verified Active
                           </div>
                         </div>
                       )}
